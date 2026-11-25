@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\StoreProductImage;
 use App\Enums\Platform;
 use App\Models\Product;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -8,9 +9,12 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 new #[Layout('layouts::admin')] class extends Component
 {
+    use WithFileUploads;
+
     /**
      * Maximum number of affiliate links per product.
      */
@@ -24,7 +28,15 @@ new #[Layout('layouts::admin')] class extends Component
 
     public string $description = '';
 
-    public string $image_url = '';
+    /**
+     * Newly selected image upload (Livewire temporary file).
+     */
+    public $photo = null;
+
+    /**
+     * Whether the current image should be removed on save.
+     */
+    public bool $removeImage = false;
 
     public bool $is_active = true;
 
@@ -45,7 +57,6 @@ new #[Layout('layouts::admin')] class extends Component
             $this->code = (string) $product->code;
             $this->name = $product->name;
             $this->description = (string) $product->description;
-            $this->image_url = (string) $product->image_url;
             $this->is_active = $product->is_active;
             $this->links = $product->affiliateLinks->map(fn ($affiliateLink): array => [
                 'id' => $affiliateLink->id,
@@ -106,9 +117,34 @@ new #[Layout('layouts::admin')] class extends Component
     }
 
     /**
+     * A newly selected file replaces any pending removal of the current image.
+     */
+    public function updatedPhoto(): void
+    {
+        $this->removeImage = false;
+    }
+
+    /**
+     * Mark the current image for removal and discard a pending upload.
+     */
+    public function removeCurrentImage(): void
+    {
+        $this->reset('photo');
+        $this->removeImage = true;
+    }
+
+    /**
+     * Keep the current image after all.
+     */
+    public function keepCurrentImage(): void
+    {
+        $this->removeImage = false;
+    }
+
+    /**
      * Validate and persist the product and its affiliate links.
      */
-    public function save(): void
+    public function save(StoreProductImage $imageStorage): void
     {
         if ($this->product) {
             $this->authorize('update', $this->product);
@@ -118,13 +154,36 @@ new #[Layout('layouts::admin')] class extends Component
 
         $validated = $this->validate();
 
+        $previousImagePath = $this->product?->image_path;
+        $newImagePath = null;
+
+        if ($this->photo) {
+            try {
+                $newImagePath = $imageStorage->handle($this->photo);
+            } catch (RuntimeException) {
+                $this->addError('photo', 'Gambar tidak dapat diproses. Coba file JPG/PNG/WebP lain.');
+                $this->dispatch('notify', message: 'Gambar tidak dapat diproses.', type: 'error');
+
+                return;
+            }
+        }
+
         try {
-            $product = DB::transaction(fn (): Product => $this->persist($validated));
+            $product = DB::transaction(fn (): Product => $this->persist($validated, $newImagePath));
         } catch (UniqueConstraintViolationException) {
+            $imageStorage->delete($newImagePath);
             $this->addError('code', 'Kode produk sudah dipakai produk lain.');
             $this->dispatch('notify', message: 'Kode produk sudah dipakai produk lain.', type: 'error');
 
             return;
+        } catch (Throwable $e) {
+            $imageStorage->delete($newImagePath);
+
+            throw $e;
+        }
+
+        if ($previousImagePath !== $product->image_path) {
+            $imageStorage->delete($previousImagePath);
         }
 
         session()->flash('status', $this->product
@@ -150,9 +209,11 @@ new #[Layout('layouts::admin')] class extends Component
      * Existing links keep their click counter; links removed from the form are
      * deleted. Link IDs are only matched against links of this product.
      *
-     * @param  array{code: int|string, name: string, description: string|null, image_url: string|null, is_active: bool, links?: list<array{id: int|null, platform: string, label: string|null, url: string}>}  $validated
+     * A new upload replaces both the previous upload and a legacy external image URL.
+     *
+     * @param  array{code: int|string, name: string, description: string|null, is_active: bool, links?: list<array{id: int|null, platform: string, label: string|null, url: string}>}  $validated
      */
-    private function persist(array $validated): Product
+    private function persist(array $validated, ?string $newImagePath): Product
     {
         $product = $this->product ?? new Product;
 
@@ -160,9 +221,18 @@ new #[Layout('layouts::admin')] class extends Component
             'code' => (int) $validated['code'],
             'name' => $validated['name'],
             'description' => ($validated['description'] ?? '') ?: null,
-            'image_url' => ($validated['image_url'] ?? '') ?: null,
             'is_active' => $validated['is_active'],
-        ])->save();
+        ]);
+
+        if ($newImagePath !== null) {
+            $product->image_path = $newImagePath;
+            $product->image_url = null;
+        } elseif ($this->removeImage) {
+            $product->image_path = null;
+            $product->image_url = null;
+        }
+
+        $product->save();
 
         $existingLinks = $product->affiliateLinks()->get()->keyBy('id');
         $keptLinkIds = [];
@@ -203,7 +273,7 @@ new #[Layout('layouts::admin')] class extends Component
             'code' => ['required', 'integer', 'min:1', 'max:4294967295', Rule::unique('products', 'code')->ignore($this->product?->id)],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:5000'],
-            'image_url' => ['nullable', 'url:https', 'max:2048'],
+            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048', 'dimensions:max_width=4000,max_height=4000'],
             'is_active' => ['boolean'],
             'links' => ['array', 'max:'.self::MAX_LINKS],
             'links.*.id' => ['nullable', 'integer'],
@@ -229,8 +299,11 @@ new #[Layout('layouts::admin')] class extends Component
             'name.required' => 'Nama produk wajib diisi.',
             'name.max' => 'Nama produk maksimal 255 karakter.',
             'description.max' => 'Deskripsi maksimal 5000 karakter.',
-            'image_url.url' => 'URL gambar harus diawali https://.',
-            'image_url.max' => 'URL gambar terlalu panjang.',
+            'photo.image' => 'File harus berupa gambar JPG, PNG, atau WebP.',
+            'photo.mimes' => 'File harus berupa gambar JPG, PNG, atau WebP.',
+            'photo.max' => 'Ukuran gambar maksimal 2 MB.',
+            'photo.dimensions' => 'Dimensi gambar maksimal 4000×4000 piksel.',
+            'photo.uploaded' => 'Gambar gagal diunggah. Coba lagi atau pilih file yang lebih kecil.',
             'links.max' => 'Maksimal '.self::MAX_LINKS.' link per produk.',
             'links.*.platform.required' => 'Pilih platform.',
             'links.*.platform.enum' => 'Platform tidak valid.',
@@ -295,24 +368,47 @@ new #[Layout('layouts::admin')] class extends Component
             </div>
 
             <div>
-                <label for="image_url" class="mb-1 block text-sm font-medium">URL gambar <span class="font-normal text-gray-500">(opsional)</span></label>
-                <input
-                    id="image_url"
-                    type="url"
-                    wire:model.blur="image_url"
-                    placeholder="https://..."
-                    class="w-full rounded-xl border border-gray-300 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-shopee/40"
-                >
-                @error('image_url') <p role="alert" class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                <label for="photo" class="mb-1 block text-sm font-medium">Gambar produk <span class="font-normal text-gray-500">(opsional)</span></label>
 
-                @if (str_starts_with($image_url, 'https://'))
-                    <img
-                        src="{{ $image_url }}"
-                        alt="Pratinjau gambar"
-                        referrerpolicy="no-referrer"
-                        class="mt-2 size-24 rounded-xl bg-gray-100 object-cover"
-                    >
-                @endif
+                <div class="flex items-start gap-3">
+                    @if ($photo && ! $errors->has('photo') && $photo->isPreviewable())
+                        <img src="{{ $photo->temporaryUrl() }}" alt="Pratinjau gambar baru" class="size-24 shrink-0 rounded-xl bg-gray-100 object-cover">
+                    @elseif (! $removeImage && $product?->hasImage())
+                        <img src="{{ $product->displayImageUrl() }}" alt="Gambar saat ini" referrerpolicy="no-referrer" class="size-24 shrink-0 rounded-xl bg-gray-100 object-cover">
+                    @else
+                        <div class="flex size-24 shrink-0 items-center justify-center rounded-xl bg-gray-100 p-2 text-center text-xs text-gray-500">Gambar default</div>
+                    @endif
+
+                    <div class="min-w-0 flex-1 space-y-2 text-sm">
+                        <input
+                            id="photo"
+                            type="file"
+                            wire:model="photo"
+                            accept="image/jpeg,image/png,image/webp"
+                            class="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-gray-900 file:px-3 file:py-2 file:text-white"
+                        >
+                        <p wire:loading wire:target="photo" class="text-gray-500">Mengunggah gambar...</p>
+                        <p class="text-xs text-gray-500">JPG, PNG, atau WebP, maks 2 MB. Otomatis diperkecil ke 800px (WebP).</p>
+
+                        @if ($photo)
+                            <p class="text-xs text-gray-600">Gambar baru akan dipakai setelah disimpan.</p>
+                        @elseif ($removeImage)
+                            <p class="text-xs text-red-600">Gambar akan dihapus saat disimpan.</p>
+                            <button type="button" wire:click="keepCurrentImage" class="text-xs font-medium text-gray-700 underline">Batal hapus</button>
+                        @elseif ($product?->hasImage())
+                            @if (! $product->image_path)
+                                <p class="text-xs text-yellow-700">Gambar saat ini dari URL luar (bisa hilang). Upload gambar untuk menggantinya.</p>
+                            @endif
+                            <button
+                                type="button"
+                                wire:click="removeCurrentImage"
+                                wire:confirm="Hapus gambar produk ini? Akan diganti gambar default setelah disimpan."
+                                class="text-xs font-medium text-red-600 underline"
+                            >Hapus gambar</button>
+                        @endif
+                    </div>
+                </div>
+                @error('photo') <p role="alert" class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
             </div>
 
             <label class="flex items-center gap-2 text-sm">
@@ -401,7 +497,7 @@ new #[Layout('layouts::admin')] class extends Component
             <button
                 type="submit"
                 wire:loading.attr="disabled"
-                wire:target="save"
+                wire:target="save, photo"
                 class="w-full rounded-xl bg-shopee px-4 py-3 font-semibold text-white hover:bg-shopee-dark disabled:opacity-60"
             >
                 <span wire:loading.remove wire:target="save">Simpan</span>

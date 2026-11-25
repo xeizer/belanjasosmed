@@ -68,7 +68,6 @@ class AdminProductManagementTest extends TestCase
             ->set('code', '123')
             ->set('name', 'Kemeja Linen')
             ->set('description', 'Adem dipakai')
-            ->set('image_url', 'https://example.com/kemeja.jpg')
             ->set('links', [
                 ['id' => null, 'platform' => 'shopee', 'label' => 'Toko A', 'url' => 'https://s.shopee.co.id/a'],
                 ['id' => null, 'platform' => 'shopee', 'label' => '', 'url' => 'https://s.shopee.co.id/b'],
@@ -96,7 +95,6 @@ class AdminProductManagementTest extends TestCase
             ->test('pages::admin.products.form')
             ->set('code', '123')
             ->set('name', '')
-            ->set('image_url', 'http://example.com/gambar.jpg')
             ->set('links', [
                 ['id' => null, 'platform' => 'lazada', 'label' => '', 'url' => 'http://s.shopee.co.id/a'],
                 ['id' => null, 'platform' => 'shopee', 'label' => '', 'url' => ''],
@@ -105,7 +103,6 @@ class AdminProductManagementTest extends TestCase
             ->assertHasErrors([
                 'code' => 'unique',
                 'name' => 'required',
-                'image_url' => 'url',
                 'links.0.platform',
                 'links.0.url' => 'url',
                 'links.1.url' => 'required',
