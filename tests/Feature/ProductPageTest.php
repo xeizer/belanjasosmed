@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AffiliateLink;
 use App\Models\Product;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -55,6 +56,59 @@ class ProductPageTest extends TestCase
         Product::factory()->inactive()->create(['code' => 400]);
 
         $this->get('/product/400')->assertNotFound();
+    }
+
+    public function test_guest_does_not_see_admin_edit_button(): void
+    {
+        $product = Product::factory()->create(['code' => 410]);
+
+        $this->get('/product/410')
+            ->assertOk()
+            ->assertDontSee('Edit produk')
+            ->assertDontSee(route('admin.products.edit', $product), false);
+    }
+
+    public function test_admin_and_super_admin_see_edit_button_on_active_product(): void
+    {
+        $product = Product::factory()->create(['code' => 420]);
+
+        foreach ([User::factory()->create(), User::factory()->superAdmin()->create()] as $user) {
+            $this->actingAs($user)
+                ->get('/product/420')
+                ->assertOk()
+                ->assertSee('Mode admin')
+                ->assertSee('Edit produk')
+                ->assertSee('href="'.route('admin.products.edit', $product).'"', false)
+                ->assertDontSee('Pratinjau · Produk nonaktif');
+        }
+    }
+
+    public function test_admin_can_preview_inactive_product(): void
+    {
+        $product = Product::factory()->inactive()->create(['code' => 430]);
+        $affiliateLink = AffiliateLink::factory()->for($product)->create(['url' => 'https://s.shopee.co.id/preview']);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/product/430')
+            ->assertOk()
+            ->assertSee('Pratinjau · Produk nonaktif')
+            ->assertSee('Pengunjung melihat halaman 404.')
+            ->assertSee('<meta name="robots" content="noindex, nofollow">', false)
+            ->assertSee('href="https://s.shopee.co.id/preview"', false)
+            ->assertDontSee(route('affiliate-links.redirect', ['product' => 430, 'affiliateLink' => $affiliateLink->id]), false)
+            ->assertSee(route('admin.products.edit', $product), false);
+    }
+
+    public function test_inactive_product_redirect_route_stays_hidden_even_for_admin(): void
+    {
+        $product = Product::factory()->inactive()->create(['code' => 440]);
+        $affiliateLink = AffiliateLink::factory()->for($product)->create();
+
+        $this->actingAs(User::factory()->create())
+            ->get("/product/440/go/{$affiliateLink->id}")
+            ->assertNotFound();
+
+        $this->assertSame(0, $affiliateLink->fresh()->click_count);
     }
 
     public function test_unknown_product_code_returns_not_found(): void
