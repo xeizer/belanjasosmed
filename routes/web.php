@@ -3,6 +3,7 @@
 use App\Http\Controllers\AffiliateLinkRedirectController;
 use App\Http\Controllers\LogoutController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductImportTemplateController;
 use App\Http\Controllers\ProductSearchController;
 use App\Models\Product;
 use App\Models\User;
@@ -40,6 +41,14 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::livewire('/products/create', 'pages::admin.products.form')
         ->middleware('can:create,'.Product::class)
         ->name('products.create');
+
+    Route::livewire('/products/import', 'pages::admin.products.import')
+        ->middleware('can:create,'.Product::class)
+        ->name('products.import');
+
+    Route::get('/products/import/template', ProductImportTemplateController::class)
+        ->middleware('can:create,'.Product::class)
+        ->name('products.import.template');
 
     // Authorization for editing happens inside the component (mount and save).
     Route::livewire('/products/{product}/edit', 'pages::admin.products.form')

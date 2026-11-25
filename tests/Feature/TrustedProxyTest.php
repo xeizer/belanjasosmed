@@ -118,13 +118,22 @@ class TrustedProxyTest extends TestCase
             ->assertJson(['url' => 'https://'.$this->authority().'/cari']);
     }
 
-    public function test_page_links_and_livewire_update_uri_use_https_behind_cloudflare(): void
+    public function test_public_page_links_use_https_behind_cloudflare(): void
     {
-        $this->withServerVariables(['REMOTE_ADDR' => self::CLOUDFLARE_IP])
+        $this->withServerVariables(['REMOTE_ADDR' => self::TUNNEL_IP])
             ->withHeaders(['X-Forwarded-Proto' => 'https'])
             ->get('/')
             ->assertOk()
             ->assertSee('action="https://'.$this->authority().'/cari"', false)
+            ->assertDontSee('"http://'.$this->authority(), false);
+    }
+
+    public function test_livewire_update_uri_uses_https_on_admin_login_behind_cloudflare(): void
+    {
+        $this->withServerVariables(['REMOTE_ADDR' => self::TUNNEL_IP])
+            ->withHeaders(['X-Forwarded-Proto' => 'https'])
+            ->get('/admin/login')
+            ->assertOk()
             ->assertSee('data-update-uri="https://'.$this->authority().'/livewire-', false)
             ->assertDontSee('"http://'.$this->authority(), false);
     }

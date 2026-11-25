@@ -110,10 +110,16 @@ new #[Layout('layouts::admin')] #[Title('Produk')] class extends Component
 <div>
     <div class="mb-4 flex items-center justify-between gap-3">
         <h1 class="text-xl font-bold">Produk</h1>
-        <a
-            href="{{ route('admin.products.create') }}"
-            class="rounded-xl bg-shopee px-4 py-2 text-sm font-semibold text-white hover:bg-shopee-dark"
-        >+ Tambah</a>
+        <div class="flex gap-2">
+            <a
+                href="{{ route('admin.products.import') }}"
+                class="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold hover:bg-gray-50"
+            >Import</a>
+            <a
+                href="{{ route('admin.products.create') }}"
+                class="rounded-xl bg-shopee px-4 py-2 text-sm font-semibold text-white hover:bg-shopee-dark"
+            >+ Tambah</a>
+        </div>
     </div>
 
     <div class="relative mb-4">
@@ -132,17 +138,13 @@ new #[Layout('layouts::admin')] #[Title('Produk')] class extends Component
         @forelse ($this->products as $product)
             <div wire:key="product-{{ $product->id }}" class="rounded-2xl bg-white p-4 shadow-sm">
                 <div class="flex gap-3">
-                    @if ($product->image_url)
-                        <img
-                            src="{{ $product->image_url }}"
-                            alt=""
-                            referrerpolicy="no-referrer"
-                            loading="lazy"
-                            class="size-16 shrink-0 rounded-xl bg-gray-100 object-cover"
-                        >
-                    @else
-                        <div class="size-16 shrink-0 rounded-xl bg-gray-100"></div>
-                    @endif
+                    <img
+                        src="{{ $product->displayImageUrl() }}"
+                        alt=""
+                        referrerpolicy="no-referrer"
+                        loading="lazy"
+                        class="size-16 shrink-0 rounded-xl bg-gray-100 object-cover"
+                    >
 
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center gap-2">

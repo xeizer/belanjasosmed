@@ -8,21 +8,17 @@
     <meta property="og:title" content="{{ $product->name }}">
     <meta property="og:description" content="{{ \Illuminate\Support\Str::limit($product->description ?? $product->name, 155) }}">
     <meta property="og:url" content="{{ route('products.show', $product->code) }}">
-    @if ($product->image_url)
-        <meta property="og:image" content="{{ $product->image_url }}">
-    @endif
+    <meta property="og:image" content="{{ $product->displayImageUrl() }}">
 @endsection
 
 @section('content')
     <article>
-        @if ($product->image_url)
-            <img
-                src="{{ $product->image_url }}"
-                alt="{{ $product->name }}"
-                referrerpolicy="no-referrer"
-                class="aspect-square w-full rounded-2xl bg-gray-100 object-cover"
-            >
-        @endif
+        <img
+            src="{{ $product->displayImageUrl() }}"
+            alt="{{ $product->name }}"
+            referrerpolicy="no-referrer"
+            class="aspect-square w-full rounded-2xl bg-gray-100 object-cover"
+        >
 
         <p class="mt-4 text-xs font-medium uppercase tracking-wider text-gray-500">Kode #{{ $product->code }}</p>
         <h1 class="mt-1 text-xl font-bold leading-snug">{{ $product->name }}</h1>
