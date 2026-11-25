@@ -7,6 +7,8 @@
 
         <title>{{ isset($title) ? $title.' - ' : '' }}Admin {{ config('app.name') }}</title>
 
+        @include('partials.favicon')
+
         <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.5"></script>
         <style type="text/tailwindcss">
             @theme {

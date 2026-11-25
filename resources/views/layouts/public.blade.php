@@ -7,6 +7,8 @@
 
         <title>@yield('title', config('app.name'))</title>
 
+        @include('partials.favicon')
+
         @yield('meta')
 
         <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.5"></script>
