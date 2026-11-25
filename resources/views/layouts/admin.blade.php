@@ -44,6 +44,16 @@
                                 'text-gray-600 hover:bg-gray-100' => ! request()->routeIs('admin.products.*'),
                             ])
                         >Produk</a>
+                        @can('viewAny', \App\Models\User::class)
+                            <a
+                                href="{{ route('admin.users.index') }}"
+                                @class([
+                                    'rounded-lg px-3 py-1.5 whitespace-nowrap',
+                                    'bg-gray-900 text-white' => request()->routeIs('admin.users.*'),
+                                    'text-gray-600 hover:bg-gray-100' => ! request()->routeIs('admin.users.*'),
+                                ])
+                            >User</a>
+                        @endcan
                         <a
                             href="{{ route('admin.password.edit') }}"
                             @class([

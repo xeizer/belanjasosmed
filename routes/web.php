@@ -5,6 +5,7 @@ use App\Http\Controllers\LogoutController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductSearchController;
 use App\Models\Product;
+use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'home')->name('home');
@@ -44,6 +45,20 @@ Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
     Route::livewire('/products/{product}/edit', 'pages::admin.products.form')
         ->whereNumber('product')
         ->name('products.edit');
+
+    Route::livewire('/users', 'pages::admin.users.index')
+        ->middleware('can:viewAny,'.User::class)
+        ->name('users.index');
+
+    Route::livewire('/users/create', 'pages::admin.users.form')
+        ->middleware('can:create,'.User::class)
+        ->name('users.create');
+
+    // Authorization for editing happens inside the component (mount and save).
+    Route::livewire('/users/{user}/edit', 'pages::admin.users.form')
+        ->whereNumber('user')
+        ->middleware('can:viewAny,'.User::class)
+        ->name('users.edit');
 
     Route::livewire('/password', 'pages::admin.password')->name('password.edit');
 });
