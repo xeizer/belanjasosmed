@@ -42,6 +42,68 @@ class ProductPageTest extends TestCase
             ->assertSeeInOrder(['Link Pertama', 'Link Kedua']);
     }
 
+    public function test_links_of_both_platforms_are_shown_in_two_columns(): void
+    {
+        $product = Product::factory()->create(['code' => 210]);
+        AffiliateLink::factory()->for($product)->shopee()->create();
+        AffiliateLink::factory()->for($product)->tiktokShop()->create();
+
+        $this->get('/product/210')
+            ->assertOk()
+            ->assertSee('mt-5 grid gap-3 grid-cols-2', false)
+            ->assertSeeInOrder(['>Shopee</h2>', '>TikTok Shop</h2>'], false);
+    }
+
+    public function test_single_platform_uses_full_width_and_numbers_unlabeled_links(): void
+    {
+        $product = Product::factory()->create(['code' => 220]);
+        AffiliateLink::factory()->for($product)->shopee()->create(['label' => null, 'sort_order' => 0]);
+        AffiliateLink::factory()->for($product)->shopee()->create(['label' => null, 'sort_order' => 1]);
+        AffiliateLink::factory()->for($product)->shopee()->create(['label' => 'Toko Resmi', 'sort_order' => 2]);
+
+        $this->get('/product/220')
+            ->assertOk()
+            ->assertDontSee('grid-cols-2', false)
+            ->assertSeeInOrder(['>Beli 1</span>', '>Beli 2</span>', '>Toko Resmi</span>'], false)
+            ->assertSee('aria-label="Beli di Shopee · Beli 1"', false);
+    }
+
+    public function test_single_unlabeled_link_is_called_beli(): void
+    {
+        $product = Product::factory()->create(['code' => 230]);
+        AffiliateLink::factory()->for($product)->tiktokShop()->create(['label' => null]);
+
+        $this->get('/product/230')
+            ->assertOk()
+            ->assertSee('>Beli</span>', false)
+            ->assertDontSee('>Beli 1</span>', false);
+    }
+
+    public function test_long_description_is_clamped_with_read_more_button(): void
+    {
+        Product::factory()->create(['code' => 240, 'description' => str_repeat('Deskripsi panjang. ', 20)]);
+        Product::factory()->create(['code' => 241, 'description' => 'Pendek saja.']);
+
+        $this->get('/product/240')
+            ->assertOk()
+            ->assertSee('line-clamp-3', false)
+            ->assertSee('selengkapnya');
+
+        $this->get('/product/241')
+            ->assertOk()
+            ->assertDontSee('selengkapnya');
+    }
+
+    public function test_product_image_links_to_full_size_image(): void
+    {
+        Product::factory()->create(['code' => 250, 'image_url' => 'https://example.com/besar.jpg']);
+
+        $this->get('/product/250')
+            ->assertOk()
+            ->assertSee('href="https://example.com/besar.jpg"', false)
+            ->assertSee('class="size-28 rounded-2xl', false);
+    }
+
     public function test_product_without_links_shows_unavailable_message(): void
     {
         Product::factory()->create(['code' => 300]);

@@ -42,49 +42,76 @@
     @endif
 
     <article>
-        <img
-            src="{{ $product->displayImageUrl() }}"
-            alt="{{ $product->name }}"
-            referrerpolicy="no-referrer"
-            class="aspect-square w-full rounded-2xl bg-gray-100 object-cover"
-        >
+        <header class="flex gap-3">
+            <a
+                href="{{ $product->displayImageUrl() }}"
+                target="_blank"
+                rel="noopener"
+                class="shrink-0"
+                aria-label="Lihat gambar {{ $product->name }} ukuran penuh"
+            >
+                <img
+                    src="{{ $product->displayImageUrl() }}"
+                    alt="{{ $product->name }}"
+                    referrerpolicy="no-referrer"
+                    class="size-28 rounded-2xl bg-gray-100 object-cover"
+                >
+            </a>
 
-        <p class="mt-4 text-xs font-medium uppercase tracking-wider text-gray-500">Kode #{{ $product->code }}</p>
-        <h1 class="mt-1 text-xl font-bold leading-snug">{{ $product->name }}</h1>
+            <div class="min-w-0 flex-1">
+                <p class="text-xs font-medium uppercase tracking-wider text-gray-500">Kode #{{ $product->code }}</p>
+                <h1 class="mt-1 line-clamp-3 text-lg font-bold leading-snug">{{ $product->name }}</h1>
+            </div>
+        </header>
 
         @if ($product->description)
-            <p class="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-700">{{ $product->description }}</p>
+            @php($isLongDescription = mb_strlen($product->description) > 140 || substr_count($product->description, "\n") >= 3)
+            <div class="mt-3">
+                <p
+                    id="product-description"
+                    @class(['whitespace-pre-line text-sm leading-relaxed text-gray-700', 'line-clamp-3' => $isLongDescription])
+                >{{ $product->description }}</p>
+                @if ($isLongDescription)
+                    <button
+                        type="button"
+                        aria-controls="product-description"
+                        aria-expanded="false"
+                        onclick="const text = document.getElementById('product-description'); const expanded = text.classList.toggle('line-clamp-3') === false; this.setAttribute('aria-expanded', expanded); this.textContent = expanded ? 'tutup' : 'selengkapnya';"
+                        class="mt-1 text-sm font-medium text-shopee"
+                    >selengkapnya</button>
+                @endif
+            </div>
         @endif
 
-        <div class="mt-6 space-y-5">
-            @foreach (\App\Enums\Platform::cases() as $platform)
-                @continue(! $linksByPlatform->has($platform->value))
+        @if ($linksByPlatform->isEmpty())
+            <p class="mt-5 rounded-xl bg-gray-50 px-4 py-3 text-center text-sm text-gray-600">
+                Link pembelian untuk produk ini belum tersedia.
+            </p>
+        @else
+            <div @class(['mt-5 grid gap-3', 'grid-cols-2' => $linksByPlatform->count() > 1])>
+                @foreach (\App\Enums\Platform::cases() as $platform)
+                    @continue(! $linksByPlatform->has($platform->value))
 
-                <section>
-                    <h2 class="mb-2 text-sm font-semibold text-gray-600">Beli di {{ $platform->label() }}</h2>
+                    @php($platformLinks = $linksByPlatform->get($platform->value))
 
-                    <div class="space-y-2">
-                        @foreach ($linksByPlatform->get($platform->value) as $affiliateLink)
-                            <a
-                                href="{{ $isInactivePreview ? $affiliateLink->url : route('affiliate-links.redirect', ['product' => $product->code, 'affiliateLink' => $affiliateLink->id]) }}"
-                                rel="sponsored nofollow noopener"
-                                class="{{ $platform->buttonClasses() }} flex w-full items-center justify-center rounded-xl px-4 py-3 text-base font-semibold active:scale-[0.99]"
-                            >
-                                Beli di {{ $platform->label() }}
-                                @if ($affiliateLink->label)
-                                    <span class="ml-1 font-normal opacity-90">· {{ $affiliateLink->label }}</span>
-                                @endif
-                            </a>
-                        @endforeach
-                    </div>
-                </section>
-            @endforeach
+                    <section class="min-w-0">
+                        <h2 class="mb-2 text-sm font-semibold text-gray-700">{{ $platform->label() }}</h2>
 
-            @if ($linksByPlatform->isEmpty())
-                <p class="rounded-xl bg-gray-50 px-4 py-3 text-center text-sm text-gray-600">
-                    Link pembelian untuk produk ini belum tersedia.
-                </p>
-            @endif
-        </div>
+                        <div class="space-y-2">
+                            @foreach ($platformLinks as $affiliateLink)
+                                @php($buttonText = $affiliateLink->label ?: ($platformLinks->count() > 1 ? 'Beli '.$loop->iteration : 'Beli'))
+                                <a
+                                    href="{{ $isInactivePreview ? $affiliateLink->url : route('affiliate-links.redirect', ['product' => $product->code, 'affiliateLink' => $affiliateLink->id]) }}"
+                                    rel="sponsored nofollow noopener"
+                                    aria-label="Beli di {{ $platform->label() }} · {{ $buttonText }}"
+                                    title="Beli di {{ $platform->label() }} · {{ $buttonText }}"
+                                    class="{{ $platform->buttonClasses() }} flex min-h-11 w-full items-center justify-center rounded-xl px-3 py-2.5 text-sm font-semibold active:scale-[0.99]"
+                                ><span class="truncate">{{ $buttonText }}</span></a>
+                            @endforeach
+                        </div>
+                    </section>
+                @endforeach
+            </div>
+        @endif
     </article>
 @endsection
