@@ -56,7 +56,13 @@ new #[Layout('layouts::admin')] #[Title('Produk')] class extends Component
      */
     public function toggleActive(int $productId): void
     {
-        $product = Product::findOrFail($productId);
+        $product = Product::find($productId);
+
+        if (! $product) {
+            $this->notifyMissingProduct();
+
+            return;
+        }
 
         $this->authorize('update', $product);
 
@@ -72,7 +78,13 @@ new #[Layout('layouts::admin')] #[Title('Produk')] class extends Component
      */
     public function delete(int $productId): void
     {
-        $product = Product::findOrFail($productId);
+        $product = Product::find($productId);
+
+        if (! $product) {
+            $this->notifyMissingProduct();
+
+            return;
+        }
 
         $this->authorize('delete', $product);
 
@@ -81,6 +93,16 @@ new #[Layout('layouts::admin')] #[Title('Produk')] class extends Component
         unset($this->products);
 
         $this->dispatch('notify', message: "Produk #{$product->code} dihapus.");
+    }
+
+    /**
+     * Tell the user the product no longer exists (e.g. deleted in another tab) and refresh the list.
+     */
+    private function notifyMissingProduct(): void
+    {
+        unset($this->products);
+
+        $this->dispatch('notify', message: 'Produk sudah tidak ada, mungkin baru saja dihapus.', type: 'error');
     }
 };
 ?>

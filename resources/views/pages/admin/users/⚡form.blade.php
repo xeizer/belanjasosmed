@@ -7,6 +7,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -79,6 +80,7 @@ new #[Layout('layouts::admin')] class extends Component
             $user->save();
         } catch (UniqueConstraintViolationException) {
             $this->addError('email', 'Email sudah dipakai user lain.');
+            $this->dispatch('notify', message: 'Email sudah dipakai user lain.', type: 'error');
 
             return;
         }
@@ -88,6 +90,16 @@ new #[Layout('layouts::admin')] class extends Component
             : "User {$user->name} ditambahkan.");
 
         $this->redirectRoute('admin.users.index');
+    }
+
+    /**
+     * Show an error toast when validation fails; field messages are still rendered by Livewire.
+     */
+    public function exception(Throwable $e, callable $stopPropagation): void
+    {
+        if ($e instanceof ValidationException) {
+            $this->dispatch('notify', message: 'Periksa kembali isian yang ditandai merah.', type: 'error');
+        }
     }
 
     /**

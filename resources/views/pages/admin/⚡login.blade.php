@@ -60,8 +60,19 @@ new #[Layout('layouts::admin')] #[Title('Masuk')] class extends Component
         RateLimiter::clear($throttleKey);
 
         session()->regenerate();
+        session()->flash('status', 'Selamat datang, '.Auth::user()->name.'.');
 
         $this->redirectIntended(route('admin.products.index'));
+    }
+
+    /**
+     * Show failed login attempts as an error toast in addition to the field message.
+     */
+    public function exception(Throwable $e, callable $stopPropagation): void
+    {
+        if ($e instanceof ValidationException) {
+            $this->dispatch('notify', message: collect($e->errors())->flatten()->first(), type: 'error');
+        }
     }
 
     /**

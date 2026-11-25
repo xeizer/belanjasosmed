@@ -36,7 +36,15 @@ new #[Layout('layouts::admin')] #[Title('User')] class extends Component
      */
     public function delete(int $userId): void
     {
-        $user = User::findOrFail($userId);
+        $user = User::find($userId);
+
+        if (! $user) {
+            unset($this->users);
+
+            $this->dispatch('notify', message: 'User sudah tidak ada, mungkin baru saja dihapus.', type: 'error');
+
+            return;
+        }
 
         $this->authorize('delete', $user);
 

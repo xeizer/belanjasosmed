@@ -88,7 +88,7 @@
                     this.timer = setTimeout(() => this.show = false, 3500);
                 },
             }"
-            x-init="@if (session('status')) notify({ message: @js(session('status')), type: 'success' }) @endif"
+            x-init="@if (session('status')) notify({ message: @js(session('status')), type: @js(session('status_type', 'success')) }) @endif"
             x-on:notify.window="notify($event.detail)"
             x-show="show"
             x-transition.opacity
@@ -103,5 +103,36 @@
                 x-text="message"
             ></div>
         </div>
+
+        {{-- Ubah error request Livewire (sesi habis, akses ditolak, data hilang, error server, koneksi putus) menjadi toast.
+             Saat APP_DEBUG aktif, popup debug bawaan Livewire tetap ditampilkan untuk memudahkan development. --}}
+        <script>
+            document.addEventListener('livewire:init', () => {
+                const replaceErrorModal = @js(! config('app.debug'));
+                const notifyError = (message) => window.dispatchEvent(
+                    new CustomEvent('notify', { detail: { message, type: 'error' } })
+                );
+                const messages = {
+                    401: 'Sesi Anda berakhir. Silakan masuk kembali.',
+                    403: 'Anda tidak memiliki akses untuk tindakan ini.',
+                    404: 'Data tidak ditemukan atau sudah dihapus. Muat ulang halaman.',
+                    419: 'Sesi berakhir. Muat ulang halaman lalu coba lagi.',
+                    429: 'Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.',
+                };
+
+                Livewire.interceptRequest(({ onError, onFailure }) => {
+                    onError(({ response, preventDefault }) => {
+                        if (! replaceErrorModal) {
+                            return;
+                        }
+
+                        preventDefault();
+                        notifyError(messages[response.status] ?? 'Terjadi kesalahan di server. Coba lagi beberapa saat.');
+                    });
+
+                    onFailure(() => notifyError('Koneksi terputus. Periksa internet Anda lalu coba lagi.'));
+                });
+            });
+        </script>
     </body>
 </html>

@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -36,6 +37,16 @@ new #[Layout('layouts::admin')] #[Title('Ubah Password')] class extends Componen
         $this->reset('current_password', 'password', 'password_confirmation');
 
         $this->dispatch('notify', message: 'Password berhasil diubah.');
+    }
+
+    /**
+     * Show an error toast when validation fails; field messages are still rendered by Livewire.
+     */
+    public function exception(Throwable $e, callable $stopPropagation): void
+    {
+        if ($e instanceof ValidationException) {
+            $this->dispatch('notify', message: 'Password gagal diubah. Periksa kembali isian yang ditandai merah.', type: 'error');
+        }
     }
 };
 ?>

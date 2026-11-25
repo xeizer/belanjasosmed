@@ -5,6 +5,7 @@ use App\Models\Product;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -121,6 +122,7 @@ new #[Layout('layouts::admin')] class extends Component
             $product = DB::transaction(fn (): Product => $this->persist($validated));
         } catch (UniqueConstraintViolationException) {
             $this->addError('code', 'Kode produk sudah dipakai produk lain.');
+            $this->dispatch('notify', message: 'Kode produk sudah dipakai produk lain.', type: 'error');
 
             return;
         }
@@ -130,6 +132,16 @@ new #[Layout('layouts::admin')] class extends Component
             : "Produk #{$product->code} ditambahkan.");
 
         $this->redirectRoute('admin.products.index');
+    }
+
+    /**
+     * Show an error toast when validation fails; field messages are still rendered by Livewire.
+     */
+    public function exception(Throwable $e, callable $stopPropagation): void
+    {
+        if ($e instanceof ValidationException) {
+            $this->dispatch('notify', message: 'Periksa kembali isian yang ditandai merah.', type: 'error');
+        }
     }
 
     /**
