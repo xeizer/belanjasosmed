@@ -26,6 +26,8 @@ new #[Layout('layouts::admin')] #[Title('Masuk')] class extends Component
      */
     public function login(): void
     {
+        $this->email = Str::lower(trim($this->email));
+
         $this->validate([
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],

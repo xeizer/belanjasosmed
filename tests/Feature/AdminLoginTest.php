@@ -39,6 +39,20 @@ class AdminLoginTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
+    public function test_login_email_is_case_insensitive_and_trimmed(): void
+    {
+        $user = User::factory()->create(['email' => 'admin@example.com']);
+
+        Livewire::test('pages::admin.login')
+            ->set('email', '  Admin@Example.COM ')
+            ->set('password', 'password')
+            ->call('login')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('admin.products.index'));
+
+        $this->assertAuthenticatedAs($user);
+    }
+
     public function test_login_fails_with_wrong_password(): void
     {
         User::factory()->create(['email' => 'admin@example.com']);
