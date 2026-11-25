@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="id">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noindex, nofollow">
+
+        <title>{{ isset($title) ? $title.' - ' : '' }}Admin {{ config('app.name') }}</title>
+
+        <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.5"></script>
+        <style type="text/tailwindcss">
+            @theme {
+                --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+                --color-shopee: #ee4d2d;
+                --color-shopee-dark: #d73211;
+                --color-tiktok: #161823;
+            }
+        </style>
+        <style>[x-cloak] { display: none !important; }</style>
+    </head>
+    <body class="min-h-screen bg-gray-100 font-sans text-gray-900 antialiased">
+        <div class="mx-auto flex min-h-screen w-full max-w-3xl flex-col">
+            @auth
+                <header class="sticky top-0 z-10 border-b border-gray-200 bg-white">
+                    <div class="flex items-center justify-between px-4 py-3">
+                        <a href="{{ route('admin.products.index') }}" class="font-bold tracking-tight">
+                            Admin <span class="text-shopee">BelanjaSosmed</span>
+                        </a>
+
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100">
+                                Keluar
+                            </button>
+                        </form>
+                    </div>
+
+                    <nav class="flex gap-1 overflow-x-auto px-2 pb-2 text-sm">
+                        <a
+                            href="{{ route('admin.products.index') }}"
+                            @class([
+                                'rounded-lg px-3 py-1.5 whitespace-nowrap',
+                                'bg-gray-900 text-white' => request()->routeIs('admin.products.*'),
+                                'text-gray-600 hover:bg-gray-100' => ! request()->routeIs('admin.products.*'),
+                            ])
+                        >Produk</a>
+                        <a
+                            href="{{ route('admin.password.edit') }}"
+                            @class([
+                                'rounded-lg px-3 py-1.5 whitespace-nowrap',
+                                'bg-gray-900 text-white' => request()->routeIs('admin.password.*'),
+                                'text-gray-600 hover:bg-gray-100' => ! request()->routeIs('admin.password.*'),
+                            ])
+                        >Ubah Password</a>
+                    </nav>
+                </header>
+            @endauth
+
+            <main class="flex-1 px-4 py-5">
+                {{ $slot }}
+            </main>
+        </div>
+
+        {{-- Notifikasi: dari session flash (setelah redirect) atau event "notify" dari komponen Livewire --}}
+        <div
+            x-data="{
+                show: false,
+                message: '',
+                type: 'success',
+                timer: null,
+                notify(detail) {
+                    this.message = detail.message;
+                    this.type = detail.type ?? 'success';
+                    this.show = true;
+                    clearTimeout(this.timer);
+                    this.timer = setTimeout(() => this.show = false, 3500);
+                },
+            }"
+            x-init="@if (session('status')) notify({ message: @js(session('status')), type: 'success' }) @endif"
+            x-on:notify.window="notify($event.detail)"
+            x-show="show"
+            x-transition.opacity
+            x-cloak
+            role="status"
+            aria-live="polite"
+            class="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-sm"
+        >
+            <div
+                class="rounded-xl px-4 py-3 text-sm font-medium text-white shadow-lg"
+                :class="type === 'error' ? 'bg-red-600' : 'bg-gray-900'"
+                x-text="message"
+            ></div>
+        </div>
+    </body>
+</html>
